@@ -17,9 +17,11 @@ import { CLI_ROOT } from '../config.js';
 import type { Finding, Severity } from '../analysis/types.js';
 
 export const FINDINGS_KEY = 'findings';
+export const PROJECT_ROOT_KEY = 'projectRoot';
 
 export interface ReviewerRequestContext {
   [FINDINGS_KEY]: Finding[];
+  [PROJECT_ROOT_KEY]?: string;
 }
 
 const SEVERITIES = ['error', 'warning', 'info'] as const satisfies readonly Severity[];
@@ -125,8 +127,11 @@ export const readSourceTool = createTool({
     endLine: z.number(),
     excerpt: z.string(),
   }),
-  execute: async (input) => {
-    const projectRoot = findProjectRoot();
+  execute: async (input, ctx) => {
+    const fromRc = (ctx as { requestContext?: { get?: (key: string) => unknown } } | undefined)
+      ?.requestContext?.get?.(PROJECT_ROOT_KEY);
+    const projectRoot =
+      typeof fromRc === 'string' && fromRc.length > 0 ? fromRc : findProjectRoot();
     const resolved = path.resolve(projectRoot, input.file);
     const rel = path.relative(projectRoot, resolved);
     if (rel.startsWith('..') || path.isAbsolute(rel)) {
