@@ -13,7 +13,7 @@ const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
 // @clint:begin templateVars
 function loadTemplateVars(): Record<string, string> {
   return {
-    agentName: '{{AGENT_NAME}}',
+    agentName: 'Lelantos Reviewer',
   };
 }
 // @clint:end templateVars

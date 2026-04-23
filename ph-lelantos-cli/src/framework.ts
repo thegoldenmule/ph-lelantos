@@ -9,10 +9,23 @@ import { z } from 'zod';
 import { createTypes } from '@powerhousedao/ph-clint';
 
 export const configSchema = z.object({
-  // Add your own config fields here — this file survives regens.
+  model: z
+    .string()
+    .default('anthropic/claude-opus-4-7')
+    .describe('LLM model (provider-prefixed id)'),
+  agentLogging: z
+    .boolean()
+    .default(false)
+    .describe('Write agent conversation logs to disk'),
+  connectPort: z.number().default(3000).describe('Connect Studio port'),
+  switchboardPort: z.number().default(4001).describe('Switchboard port'),
 });
 
 export const secretsSchema = z.object({
+  apiKey: z
+    .string()
+    .optional()
+    .describe('Anthropic API key; falls back to ANTHROPIC_API_KEY'),
 });
 
 export type Config = z.infer<typeof configSchema> &

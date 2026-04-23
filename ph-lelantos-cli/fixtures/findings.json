@@ -1,0 +1,75 @@
+[
+  {
+    "analyzerId": "reducer-purity",
+    "ruleId": "no-date-now",
+    "severity": "error",
+    "message": "Reducer uses Date.now(); dates must come from action input so reducers stay deterministic.",
+    "model": "Order",
+    "module": "lifecycle",
+    "operation": "CREATE_ORDER",
+    "location": {
+      "file": "ph-lelantos-app/document-models/document-models.ts",
+      "line": 7
+    },
+    "evidence": "createdAt: Date.now()",
+    "suggestion": "Pass createdAt via the action input schema and use action.input.createdAt."
+  },
+  {
+    "analyzerId": "schema-alignment",
+    "ruleId": "missing-required-field-guard",
+    "severity": "warning",
+    "message": "Reducer writes to state.items[].sku but the input schema marks sku as optional.",
+    "model": "Order",
+    "module": "lifecycle",
+    "operation": "ADD_LINE_ITEM",
+    "location": {
+      "file": "ph-lelantos-app/document-models/index.ts",
+      "line": 1
+    },
+    "evidence": "state.items.push({ sku: action.input.sku, qty: action.input.qty })",
+    "suggestion": "Either require sku in the input schema or guard against undefined before writing."
+  },
+  {
+    "analyzerId": "taint-tracking",
+    "ruleId": "untrusted-string-to-url",
+    "severity": "error",
+    "message": "action.input.redirectUrl flows unvalidated into a URL sink.",
+    "model": "Session",
+    "module": "auth",
+    "operation": "COMPLETE_LOGIN",
+    "location": {
+      "file": "ph-lelantos-app/editors/editors.ts",
+      "line": 1
+    },
+    "evidence": "window.location.href = action.input.redirectUrl",
+    "suggestion": "Validate redirectUrl against an allowlist before assigning."
+  },
+  {
+    "analyzerId": "operation-coverage",
+    "ruleId": "missing-reducer",
+    "severity": "warning",
+    "message": "Operation CANCEL_ORDER is declared in the schema but has no reducer implementation.",
+    "model": "Order",
+    "module": "lifecycle",
+    "operation": "CANCEL_ORDER",
+    "location": {
+      "file": "ph-lelantos-app/document-models/document-models.ts",
+      "line": 5
+    },
+    "evidence": "No matching export in reducers/lifecycle.ts"
+  },
+  {
+    "analyzerId": "forbidden-imports",
+    "ruleId": "no-node-fs",
+    "severity": "info",
+    "message": "Reducer imports node:fs; reducers must be pure and pass no I/O.",
+    "model": "Report",
+    "module": "export",
+    "operation": "EMIT_REPORT",
+    "location": {
+      "file": "ph-lelantos-app/subgraphs/index.ts",
+      "line": 1
+    },
+    "evidence": "import fs from 'node:fs'"
+  }
+]

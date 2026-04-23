@@ -45,8 +45,17 @@ export const cli = defineCli({
 
   // @clint:begin prompts
   prompts: {
-    artifacts: [],
-    agents: {},
+    artifacts: [
+      path.join(CLI_ROOT, 'gen', 'skills'),
+      path.join(CLI_ROOT, 'dist', 'gen', 'skills'),
+    ],
+    agents: {
+      'lelantos-reviewer': {
+        name: 'LelantosReviewer',
+        sections: ['AgentBase.md', 'ReviewerAgent.md'],
+        skills: [],
+      },
+    },
     skills: {},
   },
   // @clint:end prompts

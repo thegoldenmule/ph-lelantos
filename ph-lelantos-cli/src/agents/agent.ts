@@ -1,28 +1,62 @@
-import type { AgentProvider, AgentSetupContext, StreamChunk } from '@powerhousedao/ph-clint';
+import { Agent } from '@mastra/core/agent';
+import type { AgentProvider, AgentSetupContext } from '@powerhousedao/ph-clint';
+import { createWorkdirStore } from '@powerhousedao/ph-clint';
+import { createMastraHelpers } from '@powerhousedao/ph-clint/mastra';
+import { CLI_NAME } from '../config.js';
 import type { Config } from '../framework.js';
+import { getFindingsTool, readSourceTool } from './tools.js';
 
-/**
- * Demo agent — deterministic echo responses. Replace with a real Mastra
- * `Agent` once you've wired your model + tools.
- */
-function createDemoAgent(): AgentProvider {
-  return {
-    id: 'ph-lelantos',
-    async *stream(prompt) {
-      yield {
-        type: 'text-delta',
-        text: `You said: ${prompt}\n(demo mode — set an API key and replace createDemoAgent with a Mastra Agent)`,
-      } satisfies StreamChunk;
-    },
-  };
+export interface CreateReviewerAgentArgs {
+  instructions: string;
+  model: string;
+  apiKey?: string;
+  workspace?: unknown;
+  memory?: unknown;
 }
 
 /**
- * Agent factory invoked by `cli.configureAgent`. Receives the resolved
- * config and workdir; return an AgentProvider.
+ * Construct the raw Mastra reviewer agent. Exposed so callers (CLI command,
+ * Mastra Studio entry) can invoke `.stream(prompt, { runtimeContext })`
+ * directly and inject findings via the request context.
+ */
+export function createReviewerAgent(args: CreateReviewerAgentArgs): Agent {
+  const model = args.apiKey
+    ? { id: args.model, apiKey: args.apiKey }
+    : args.model;
+  return new Agent({
+    id: 'lelantos-reviewer',
+    name: 'Lelantos Reviewer',
+    instructions: args.instructions,
+    model: model as never,
+    tools: {
+      getFindings: getFindingsTool,
+      readSource: readSourceTool,
+    },
+    workspace: args.workspace as never,
+    memory: args.memory as never,
+  });
+}
+
+/**
+ * Agent factory invoked by `cli.configureAgent`. Wraps the Mastra agent as a
+ * ph-clint `AgentProvider`.
  */
 export async function createAgent(
-  _ctx: AgentSetupContext<Config>,
+  ctx: AgentSetupContext<Config>,
 ): Promise<AgentProvider> {
-  return createDemoAgent();
+  const m = createMastraHelpers(ctx);
+  const agent = createReviewerAgent({
+    instructions: m.getAgentInstructions('lelantos-reviewer'),
+    model: ctx.config.model,
+    apiKey: ctx.config.apiKey,
+    workspace: await m.createWorkspace(),
+    memory: await m.createMemory(),
+  });
+  const store = createWorkdirStore(ctx.workdir, CLI_NAME);
+  return m.wrapAgent(agent, {
+    maxSteps: 40,
+    enableLogging: ctx.config.agentLogging,
+    logDirectory: store.getStoreFolder('logs'),
+    cacheControl: true,
+  });
 }

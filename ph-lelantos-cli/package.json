@@ -30,6 +30,7 @@
     "@ast-grep/cli": "^0.42.1",
     "@mastra/core": "^1.22.0",
     "@mastra/libsql": "^1.7.4",
+    "@mastra/loggers": "^1.1.1",
     "@mastra/memory": "^1.13.1",
     "@powerhousedao/ph-lelantos-app": "file:../ph-lelantos-app",
     "@powerhousedao/reactor": "6.0.0-dev.170",
