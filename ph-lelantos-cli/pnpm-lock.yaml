@@ -6551,6 +6551,7 @@ packages:
 
   libsql@0.5.29:
     resolution: {integrity: sha512-8lMP8iMgiBzzoNbAPQ59qdVcj6UaE/Vnm+fiwX4doX4Narook0a4GPKWBEv+CR8a1OwbfkgL18uBfBjWdF0Fzg==}
+    cpu: [x64, arm64, wasm32, arm]
     os: [darwin, linux, win32]
 
   lie@3.3.0:
@@ -10472,7 +10473,7 @@ snapshots:
     dependencies:
       hono: 4.12.14
 
-  '@hookform/resolvers@5.2.2(react-hook-form@7.73.1(react@19.2.4))':
+  '@hookform/resolvers@5.2.2(react-hook-form@7.73.1(react@19.2.5))':
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.73.1(react@19.2.4)
@@ -13085,7 +13086,7 @@ snapshots:
       '@codemirror/state': 6.5.2
       '@codemirror/view': 6.36.7
       '@graphql-tools/utils': 11.0.0(graphql@16.12.0)
-      '@hookform/resolvers': 5.2.2(react-hook-form@7.73.1(react@19.2.4))
+      '@hookform/resolvers': 5.2.2(react-hook-form@7.73.1(react@19.2.5))
       '@powerhousedao/design-system': 6.0.0-dev.194(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(synckit@0.11.12)(typescript@6.0.3)
       '@powerhousedao/document-engineering': 1.40.1(@types/express@4.17.25)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@6.0.3)
       '@powerhousedao/reactor-browser': 6.0.0-dev.194(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(synckit@0.11.12)(typescript@6.0.3)
