@@ -4,6 +4,7 @@ import {
   aggregateFindings,
   parseRecommendations,
   renderCite,
+  renderFindings,
   renderFindingsPlain,
   shortenPath,
 } from '../../src/commands/review.js';
@@ -87,7 +88,7 @@ describe('shortenPath', () => {
 });
 
 describe('aggregateFindings', () => {
-  it('collapses ≥3 findings with the same (analyzerId, ruleId, model) into a group', () => {
+  it('collapses repeated findings with the same (analyzerId, ruleId, model) into a group', () => {
     const findings = Array.from({ length: 5 }, (_, i) =>
       makeFinding({
         location: { file: `src/f${i}.ts`, line: i + 1 },
@@ -103,6 +104,18 @@ describe('aggregateFindings', () => {
       model: 'Invoice',
     });
     if (items[0].kind === 'group') {
+      // New default: 1 example per group.
+      expect(items[0].examples).toHaveLength(1);
+    }
+  });
+
+  it('honours explicit threshold / maxExamples options', () => {
+    const findings = Array.from({ length: 5 }, (_, i) =>
+      makeFinding({ location: { file: `src/f${i}.ts`, line: i + 1 } }),
+    );
+    const items = aggregateFindings(findings, { threshold: 3, maxExamples: 3 });
+    expect(items).toHaveLength(1);
+    if (items[0].kind === 'group') {
       expect(items[0].examples).toHaveLength(3);
     }
   });
@@ -110,11 +123,10 @@ describe('aggregateFindings', () => {
   it('keeps below-threshold buckets as singles', () => {
     const findings = [
       makeFinding({ location: { file: 'a.ts', line: 1 } }),
-      makeFinding({ location: { file: 'b.ts', line: 2 } }),
     ];
     const items = aggregateFindings(findings);
-    expect(items).toHaveLength(2);
-    expect(items.every((i) => i.kind === 'single')).toBe(true);
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe('single');
   });
 
   it('separates buckets across distinct models', () => {
@@ -131,7 +143,7 @@ describe('aggregateFindings', () => {
   });
 });
 
-describe('renderFindingsPlain', () => {
+describe('renderFindingsPlain — file grouping (default)', () => {
   const findings: Finding[] = [
     ...Array.from({ length: 5 }, (_, i) =>
       makeFinding({
@@ -153,34 +165,152 @@ describe('renderFindingsPlain', () => {
     }),
   ];
 
-  it('prints a summary header with global and per-model tallies', () => {
+  it('prints the file-grouped header', () => {
     const out = renderFindingsPlain(findings).join('\n');
-    expect(out).toContain('=== SUMMARY ===');
-    expect(out).toContain('Total: 1 errors, 5 warnings, 0 info');
-    expect(out).toContain('Invoice: 1 errors, 5 warnings, 0 info');
+    expect(out).toContain('=== FINDINGS (by file) ===');
   });
 
-  it('renders severity section headers with counts', () => {
+  it('puts the file with the most errors first', () => {
     const out = renderFindingsPlain(findings).join('\n');
+    const errLineIdx = out.indexOf('src/reducers/lifecycle.ts');
+    const warnLineIdx = out.indexOf('src/schema/invoice-0.graphql');
+    expect(errLineIdx).toBeGreaterThanOrEqual(0);
+    expect(warnLineIdx).toBeGreaterThanOrEqual(0);
+    expect(errLineIdx).toBeLessThan(warnLineIdx);
+  });
+
+  it('prefixes each finding with a severity glyph', () => {
+    const out = renderFindingsPlain(findings).join('\n');
+    expect(out).toContain('✖'); // error
+    expect(out).toContain('⚠'); // warning
+  });
+
+  it('includes the summary block with totals and per-model tallies', () => {
+    const out = renderFindingsPlain(findings).join('\n');
+    expect(out).toContain('=== SUMMARY ===');
+    expect(out).toContain('1 errors');
+    expect(out).toContain('5 warnings');
+    expect(out).toContain('Invoice');
+  });
+
+  it('puts the summary AFTER the findings body', () => {
+    const out = renderFindingsPlain(findings).join('\n');
+    expect(out.indexOf('=== FINDINGS')).toBeLessThan(out.indexOf('=== SUMMARY ==='));
+  });
+
+  it('shows top offenders (files and rules)', () => {
+    const out = renderFindingsPlain(findings).join('\n');
+    expect(out).toContain('Top files:');
+    expect(out).toContain('Top rules:');
+  });
+
+  it('ends with a FAIL verdict when any errors exist', () => {
+    const lines = renderFindingsPlain(findings);
+    const last = lines[lines.length - 1];
+    expect(last).toContain('FAIL');
+    expect(last).toContain('1 error');
+  });
+
+  it('ends with a PASS-with-warnings verdict when only warnings exist', () => {
+    const warnOnly = findings.filter((f) => f.severity === 'warning');
+    const lines = renderFindingsPlain(warnOnly);
+    const last = lines[lines.length - 1];
+    expect(last).toContain('PASS with 5 warnings');
+  });
+
+  it('returns a green PASS verdict for empty input', () => {
+    const lines = renderFindingsPlain([]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('PASS');
+    expect(lines[0]).toContain('no findings');
+  });
+
+  it('hides info-severity findings by default and reports the hidden count', () => {
+    const withInfo = [
+      ...findings,
+      makeFinding({
+        severity: 'info',
+        ruleId: 'style-nit',
+        location: { file: 'src/x.ts', line: 1 },
+      }),
+    ];
+    const out = renderFindingsPlain(withInfo).join('\n');
+    expect(out).toContain('hidden below --min-severity=warning');
+  });
+
+  it('includes info findings when --min-severity=info', () => {
+    const withInfo = [
+      ...findings,
+      makeFinding({
+        severity: 'info',
+        ruleId: 'style-nit',
+        message: 'trivial style',
+        location: { file: 'src/x.ts', line: 1 },
+      }),
+    ];
+    const out = renderFindingsPlain(withInfo, { minSeverity: 'info' }).join('\n');
+    expect(out).toContain('trivial style');
+    expect(out).not.toContain('hidden below');
+  });
+});
+
+describe('renderFindingsPlain — by severity', () => {
+  const findings: Finding[] = [
+    ...Array.from({ length: 5 }, (_, i) =>
+      makeFinding({
+        severity: 'warning',
+        evidence: 'field: description (no maxLength)',
+        location: { file: `src/schema/invoice-${i}.graphql`, line: i + 1 },
+      }),
+    ),
+    makeFinding({
+      severity: 'error',
+      ruleId: 'no-date-now',
+      analyzerId: 'reducer-purity',
+      message: 'Reducer calls Date.now()',
+      model: 'Invoice',
+      module: 'lifecycle',
+      operation: 'create',
+      evidence: 'const now = Date.now();',
+      location: { file: 'src/reducers/lifecycle.ts', line: 7 },
+    }),
+  ];
+
+  it('renders severity section headers with counts', () => {
+    const out = renderFindingsPlain(findings, { by: 'severity' }).join('\n');
     expect(out).toContain('=== ERROR (1) ===');
     expect(out).toContain('=== WARNING (5) ===');
   });
 
-  it('collapses repeated warnings by default with no evidence', () => {
-    const out = renderFindingsPlain(findings).join('\n');
+  it('collapses repeated warnings by default', () => {
+    const out = renderFindingsPlain(findings, { by: 'severity' }).join('\n');
     expect(out).toContain('(x5 occurrences)');
-    expect(out).not.toContain('no maxLength');
   });
 
   it('expands every finding with evidence under verbose', () => {
-    const out = renderFindingsPlain(findings, { verbose: true }).join('\n');
+    const out = renderFindingsPlain(findings, {
+      by: 'severity',
+      verbose: true,
+    }).join('\n');
     expect(out).not.toContain('(x5 occurrences)');
     expect(out).toContain('no maxLength');
     expect(out).toContain('src/schema/invoice-0.graphql:1');
     expect(out).toContain('src/schema/invoice-4.graphql:5');
   });
+});
 
-  it('returns "No findings." when empty', () => {
-    expect(renderFindingsPlain([])).toEqual(['No findings.']);
+describe('renderFindings with forced color', () => {
+  it('emits ANSI codes when useColor=true, regardless of TTY', () => {
+    const findings = [
+      makeFinding({
+        severity: 'error',
+        ruleId: 'no-date-now',
+        analyzerId: 'reducer-purity',
+        location: { file: 'src/r.ts', line: 1 },
+      }),
+    ];
+    const out = renderFindings(findings, { useColor: true }).join('\n');
+    // ANSI escape sequences start with \x1b[.
+    expect(out).toMatch(/\x1b\[/);
   });
 });
