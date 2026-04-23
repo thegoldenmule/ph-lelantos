@@ -37,7 +37,9 @@
     "@powerhousedao/shared": "6.0.0-dev.170",
     "dependency-cruiser": "^16.10.0",
     "document-model": "6.0.0-dev.170",
-    "ts-morph": "^27.0.2"
+    "ts-morph": "^27.0.2",
+    "@graphql-inspector/core": "^6.2.1",
+    "graphql": "^16.9.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
