@@ -34,7 +34,8 @@
     "@powerhousedao/reactor": "6.0.0-dev.170",
     "@powerhousedao/reactor-api": "6.0.0-dev.170",
     "@powerhousedao/shared": "6.0.0-dev.170",
-    "document-model": "6.0.0-dev.170"
+    "document-model": "6.0.0-dev.170",
+    "ts-morph": "^27.0.2"
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
