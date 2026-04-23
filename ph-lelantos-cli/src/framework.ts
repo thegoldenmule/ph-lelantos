@@ -11,7 +11,7 @@ import { createTypes } from '@powerhousedao/ph-clint';
 export const configSchema = z.object({
   model: z
     .string()
-    .default('anthropic/claude-opus-4-7')
+    .default('anthropic/claude-opus-4-6')
     .describe('LLM model (provider-prefixed id)'),
   agentLogging: z
     .boolean()

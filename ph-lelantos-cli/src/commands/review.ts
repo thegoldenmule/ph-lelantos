@@ -689,9 +689,14 @@ export function renderVerdict(
   return c.green(c.bold('✓ PASS — no findings.'));
 }
 
-// Cite atom matches the format the reviewer agent is prompted to emit:
-// `<analyzerId>:<ruleId>@<file>:<line>`.
-const CITE_RE = /([A-Za-z0-9][\w-]*):([A-Za-z0-9][\w.-]*)@([^\s,]+?):(\d+)/g;
+// Cite atom accepts three forms emitted by the reviewer agent:
+//   1. analyzerId:ruleId@file:line   (location-pinned)
+//   2. analyzerId:ruleId@ScopeName   (model/module/operation scope)
+//   3. analyzerId:ruleId             (rule-wide, no scope)
+// Lookbehind prevents mid-token matches like `ts:277` inside `wallet.ts:277`.
+// ruleId char class includes `/` to match paths like `security/detect-object-injection`.
+const CITE_RE =
+  /(?<![A-Za-z0-9./])([A-Za-z0-9][\w-]*):([A-Za-z0-9][\w./-]*)(?:@([^\s,]+))?/g;
 
 export function parseRecommendations(markdown: string): Recommendation[] {
   const result: Recommendation[] = [];
@@ -713,7 +718,10 @@ export function parseRecommendations(markdown: string): Recommendation[] {
       flush();
       const cites: string[] = [];
       for (const m of citeMatch[1].matchAll(CITE_RE)) {
-        cites.push(`${m[1]}:${m[2]}@${m[3]}:${m[4]}`);
+        const analyzerId = m[1];
+        const ruleId = m[2];
+        const scope = m[3];
+        cites.push(scope ? `${analyzerId}:${ruleId}@${scope}` : `${analyzerId}:${ruleId}`);
       }
       current = { cites, text: '' };
       continue;
@@ -731,21 +739,39 @@ export function parseRecommendations(markdown: string): Recommendation[] {
 }
 
 export function renderCite(cite: string): string {
-  const m = cite.match(/^([^:]+):([^@]+)@(.+?):(\d+)$/);
-  if (!m) return `[${cite}]`;
-  return `[${m[1]}/${m[2]} @ ${m[3]}:${m[4]}]`;
+  // Form 1: analyzerId:ruleId@file:line
+  const locM = cite.match(/^([^:]+):([^@]+)@(.+):(\d+)$/);
+  if (locM) return `[${locM[1]}/${locM[2]} @ ${locM[3]}:${locM[4]}]`;
+  // Form 2: analyzerId:ruleId@ScopeName
+  const scopeM = cite.match(/^([^:]+):([^@]+)@([^:]+)$/);
+  if (scopeM) return `[${scopeM[1]}/${scopeM[2]} ~ ${scopeM[3]}]`;
+  // Form 3: analyzerId:ruleId
+  const ruleM = cite.match(/^([^:]+):([^:]+)$/);
+  if (ruleM) return `[${ruleM[1]}/${ruleM[2]}]`;
+  return `[${cite}]`;
 }
 
-function renderRecommendations(recs: Recommendation[]): string[] {
+function renderRecommendations(
+  recs: Recommendation[],
+  opts: { useColor?: boolean } = {},
+): string[] {
+  const c = makeColor(opts.useColor ?? false);
   const lines: string[] = [];
-  lines.push('=== RECOMMENDATIONS ===');
-  for (const rec of recs) {
+  lines.push(c.bold('=== RECOMMENDATIONS ==='));
+  lines.push('');
+  for (let i = 0; i < recs.length; i++) {
+    const rec = recs[i];
+    const num = c.bold(`${i + 1}.`);
     const citeStr =
-      rec.cites.length > 0 ? rec.cites.map(renderCite).join(', ') : '(no citations)';
-    lines.push(`- ${citeStr}`);
+      rec.cites.length > 0
+        ? rec.cites.map(renderCite).join(', ')
+        : c.dim('(no citations)');
+    lines.push(`${num} ${c.dim('Cites:')} ${citeStr}`);
     for (const textLine of rec.text.split('\n')) {
-      lines.push(`  ${textLine}`);
+      if (textLine.trim() === '') continue;
+      lines.push(`   ${textLine}`);
     }
+    if (i < recs.length - 1) lines.push('');
   }
   lines.push('');
   return lines;
@@ -772,9 +798,15 @@ async function runSynthesis(
     type: string;
     textDelta?: string;
     text?: string;
+    error?: unknown;
+    payload?: { text?: string };
   }>) {
     if (chunk.type === 'text-delta') {
-      text += chunk.textDelta ?? chunk.text ?? '';
+      text += chunk.textDelta ?? chunk.text ?? chunk.payload?.text ?? '';
+    } else if (chunk.type === 'error') {
+      const err = chunk.error;
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`LLM stream error: ${msg}`);
     }
   }
   return parseRecommendations(text);
@@ -812,20 +844,12 @@ export const reviewCommand = defineCommand({
 
     let recommendations: Recommendation[] = [];
     if (input.llm && findings.length > 0) {
-      try {
-        recommendations = await runSynthesis(
-          ctx,
-          findings,
-          analyzerCtx.projectRoot,
-          input.maxTokens,
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        ctx.stdout(
-          `[warn] LLM synthesis failed: ${msg} — falling back to static-only output.\n`,
-        );
-        recommendations = [];
-      }
+      recommendations = await runSynthesis(
+        ctx,
+        findings,
+        analyzerCtx.projectRoot,
+        input.maxTokens,
+      );
     }
 
     if (input.json) {
@@ -839,8 +863,13 @@ export const reviewCommand = defineCommand({
         minSeverity: input.minSeverity,
       });
       if (recommendations.length > 0) {
-        lines.push('');
-        lines.push(...renderRecommendations(recommendations));
+        // renderFindings ends with [..., '', verdict]. Splice recs in before
+        // the trailing blank + verdict so the verdict stays the final line.
+        const verdict = lines.pop();
+        const trailingBlank = lines.pop();
+        lines.push(...renderRecommendations(recommendations, { useColor: true }));
+        if (trailingBlank !== undefined) lines.push(trailingBlank);
+        if (verdict !== undefined) lines.push(verdict);
       }
       ctx.stdout(lines.join('\n'));
     }

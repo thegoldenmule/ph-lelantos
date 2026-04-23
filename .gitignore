@@ -2,3 +2,4 @@
 node_modules/
 .hotseat/worktrees
 .ph-lelantos
+.env

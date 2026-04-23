@@ -40,6 +40,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "dependency-cruiser": "^16.10.0",
     "document-model": "6.0.0-dev.170",
+    "dotenv": "^17.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-security": "^3.0.0",
     "graphql": "^16.9.0",
