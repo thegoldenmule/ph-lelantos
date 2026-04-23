@@ -9,13 +9,15 @@
  *   - HTTP clients (fetch shims, axios, undici, ...)
  *   - database clients
  *   - loggers that touch I/O
- *   - anything outside `document-models/<model>/src/**` (except the tight
- *     allowlist below)
+ *   - anything outside the model's own package dir (`document-models/<model>/**`
+ *     or `document-models/<model>/<version>/**` for versioned layouts),
+ *     except the tight allowlist below plus the host repo's own package name
+ *     (self-imports via the published package path are allowed)
  *
  * Complements reducer-purity: purity checks call sites, this checks the
  * import closure so indirect I/O is caught.
  */
-import { access, readdir } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { cruise } from 'dependency-cruiser';
 import type { Analyzer, Finding, LoadedDocumentModel } from '../types.js';
@@ -118,11 +120,18 @@ function packageNameOf(specifier: string): string {
   return specifier.split('/')[0] ?? specifier;
 }
 
+function isInside(absolute: string, dir: string): boolean {
+  return absolute === dir || absolute.startsWith(dir + sep);
+}
+
 function classify(
   specifier: string,
   resolvedPath: string | undefined,
   isCore: boolean,
-  modelSrcDir: string,
+  sourceFile: string,
+  packageDir: string,
+  modelPackageDir: string,
+  hostPackageName: string | undefined,
 ): string | null {
   if (isCore || specifier.startsWith('node:')) {
     return 'no-node-builtins';
@@ -139,12 +148,8 @@ function classify(
     specifier.startsWith('../') ||
     specifier.startsWith('/');
   if (isRelative) {
-    if (!resolvedPath) return null;
-    const absolute = resolve(resolvedPath);
-    const boundary = modelSrcDir + sep;
-    if (absolute === modelSrcDir || absolute.startsWith(boundary)) {
-      return null;
-    }
+    const absolute = resolve(dirname(resolve(sourceFile)), specifier);
+    if (isInside(absolute, modelPackageDir)) return null;
     return 'out-of-package';
   }
 
@@ -152,7 +157,37 @@ function classify(
   if ((ALLOWED_PACKAGES as readonly string[]).includes(pkg)) {
     return null;
   }
+  if (hostPackageName && pkg === hostPackageName) {
+    return null;
+  }
+  // dependency-cruiser resolved the specifier (tsconfig path alias, workspace
+  // link, etc.) to a file inside the model package.
+  if (
+    resolvedPath &&
+    resolvedPath !== specifier &&
+    isInside(resolve(resolvedPath), modelPackageDir)
+  ) {
+    return null;
+  }
+  // Fallback for tsconfig path aliases that dep-cruiser couldn't resolve:
+  // interpret the specifier as a path relative to the host repo root
+  // (e.g. "document-models/<slug>/<version>").
+  if (isInside(resolve(packageDir, specifier), modelPackageDir)) {
+    return null;
+  }
   return 'out-of-package';
+}
+
+async function readHostPackageName(
+  packageDir: string,
+): Promise<string | undefined> {
+  try {
+    const text = await readFile(join(packageDir, 'package.json'), 'utf8');
+    const parsed = JSON.parse(text) as { name?: unknown };
+    return typeof parsed.name === 'string' ? parsed.name : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function analyzeModel(model: LoadedDocumentModel): Promise<Finding[]> {
@@ -160,7 +195,8 @@ async function analyzeModel(model: LoadedDocumentModel): Promise<Finding[]> {
   const files = await collectReducerFiles(model.reducerDir);
   if (files.length === 0) return [];
 
-  const modelSrcDir = resolve(model.reducerDir, '..');
+  const modelPackageDir = resolve(model.reducerDir, '..', '..');
+  const hostPackageName = await readHostPackageName(model.packageDir);
   const tsConfigFile = await findTsConfig(model.packageDir);
 
   let result;
@@ -192,7 +228,15 @@ async function analyzeModel(model: LoadedDocumentModel): Promise<Finding[]> {
       const isCore =
         Boolean(dep.coreModule) ||
         (dep.dependencyTypes ?? []).includes('core');
-      const ruleId = classify(dep.module, dep.resolved, isCore, modelSrcDir);
+      const ruleId = classify(
+        dep.module,
+        dep.resolved,
+        isCore,
+        mod.source,
+        model.packageDir,
+        modelPackageDir,
+        hostPackageName,
+      );
       if (!ruleId) continue;
       findings.push({
         analyzerId: 'forbidden-imports',
