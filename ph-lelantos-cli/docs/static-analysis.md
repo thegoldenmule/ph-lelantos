@@ -90,8 +90,17 @@ tightens a different failure mode.
   what the Powerhouse loaders expose.
 - **graphql-inspector** for SDL diffing is mature and well-tested; for
   JSON-Schema document models we will roll a small diff.
-- **Semgrep / ast-grep** are right for patterns that don't need type
-  info. They keep the type-aware analyzers focused.
+- **Semgrep** is preferred for the pattern-rules analyzer when it is
+  discoverable on `PATH`. The upstream community rulesets
+  (`p/security-audit`, `p/typescript`) cover a lot of ground we don't
+  want to reimplement, and its rule surface (metavariables, taint
+  mode, autofix) is richer than ast-grep's. It is not npm-installable,
+  so we don't pin it — we just use it when it's there.
+- **ast-grep** (`@ast-grep/cli`) is the shipped fallback runner. It is
+  a single Rust binary distributed via npm, so `pnpm install` gives
+  every contributor a working pattern-rules pass without an extra
+  system prerequisite. Its tree-sitter grammars cover TypeScript and
+  GraphQL, which is enough for the in-tree contributor-authored rules.
 - **ESLint** is already in the project toolchain and is the path of
   least resistance for rules that are file-local.
 - **CodeQL** is intentionally out of scope. It is powerful but adds a
