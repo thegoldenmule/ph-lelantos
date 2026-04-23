@@ -1,0 +1,19 @@
+{
+  "name": "@powerhousedao/ph-lelantos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Performs security audits on document-models.",
+  "scripts": {
+    "install": "pnpm --prefix ph-lelantos-app install && pnpm --prefix ph-lelantos-cli install",
+    "build": "pnpm --prefix ph-lelantos-app build && pnpm --prefix ph-lelantos-app connect:build && pnpm --prefix ph-lelantos-cli build",
+    "test": "pnpm --prefix ph-lelantos-app test && pnpm --prefix ph-lelantos-cli test",
+    "dev": "pnpm --prefix ph-lelantos-cli dev",
+    "start": "pnpm --prefix ph-lelantos-cli start",
+    "lint": "pnpm --prefix ph-lelantos-cli lint",
+    "app:dev": "pnpm --prefix ph-lelantos-app dev",
+    "cli:dev": "pnpm --prefix ph-lelantos-cli dev",
+    "publish:dev": "pnpm --prefix ph-lelantos-cli exec ph-publish dev -c ./publish.config.ts",
+    "publish:staging": "pnpm --prefix ph-lelantos-cli exec ph-publish staging -c ./publish.config.ts",
+    "publish:production": "pnpm --prefix ph-lelantos-cli exec ph-publish production -c ./publish.config.ts"
+  }
+}

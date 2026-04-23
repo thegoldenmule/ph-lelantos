@@ -1,0 +1,51 @@
+{
+  "name": "@powerhousedao/ph-lelantos-cli",
+  "version": "0.1.0-dev.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "description": "Performs security audits on document-models.",
+  "bin": {
+    "ph-lelantos": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "prompts"
+  ],
+  "scripts": {
+    "build:skills": "tsx scripts/build-skills.ts",
+    "build": "pnpm build:skills && tsc",
+    "dev": "tsx src/main.ts",
+    "start": "node dist/main.js",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest --detectOpenHandles",
+    "lint": "eslint src",
+    "mastra:dev": "mastra dev",
+    "mastra:build": "mastra build",
+    "mastra:start": "mastra start"
+  },
+  "dependencies": {
+    "@powerhousedao/ph-clint": "0.1.0-dev.18",
+    "zod": "^4.3.6",
+    "@mastra/core": "^1.22.0",
+    "@mastra/libsql": "^1.7.4",
+    "@mastra/memory": "^1.13.1",
+    "@powerhousedao/ph-lelantos-app": "file:../ph-lelantos-app",
+    "@powerhousedao/reactor": "6.0.0-dev.170",
+    "@powerhousedao/reactor-api": "6.0.0-dev.170",
+    "@powerhousedao/shared": "6.0.0-dev.170",
+    "document-model": "6.0.0-dev.170"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@types/node": "^25.5.2",
+    "jest": "^30.2.0",
+    "@powerhousedao/ph-clint-dev": "0.1.0-dev.18",
+    "ts-jest": "^29.4.6",
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.2"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}
