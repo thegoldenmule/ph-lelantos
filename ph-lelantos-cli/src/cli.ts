@@ -14,6 +14,7 @@ import { configSchema, secretsSchema } from './framework.js';
 // @clint:begin imports
 import { documentModels } from '@powerhousedao/ph-lelantos-app';
 import { createAgent } from './agents/agent.js';
+import { reviewCommand } from './commands/review.js';
 // @clint:end imports
 
 const appDir = path.resolve(CLI_ROOT, '../ph-lelantos-app');
@@ -31,7 +32,7 @@ export const cli = defineCli({
   secretsSchema,
 
   // @clint:begin commands
-  commands: [],
+  commands: [reviewCommand],
   // @clint:end commands
 
   // @clint:begin services
